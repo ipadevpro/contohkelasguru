@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="toast.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Load required API and layout scripts -->
-    <script src="js/student-api.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/layout.js"></script>
     <script src="js/sidebar-fix.js"></script>
     <script src="toast.js"></script>
@@ -90,12 +90,26 @@
             <div class="flex-1 overflow-auto p-4">
                 <div class="mb-6 flex justify-between items-center">
                     <h2 class="text-2xl font-semibold">Siswa</h2>
-                    <button id="add-student-btn" class="shadcn-btn shadcn-btn-primary flex items-center">
-                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                        Tambah Siswa
-                    </button>
+                    <div class="flex gap-2">
+                        <button id="refresh-data-btn" class="shadcn-btn shadcn-btn-outline flex items-center">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Refresh Data
+                        </button>
+                        <button id="debug-connection-btn" class="shadcn-btn shadcn-btn-outline flex items-center">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Debug Connection
+                        </button>
+                        <button id="add-student-btn" class="shadcn-btn shadcn-btn-primary flex items-center">
+                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Tambah Siswa
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Filter container -->
@@ -282,6 +296,15 @@
     <!-- Scripts -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // API_URL is already defined in api.js - no need to hardcode here
+            
+            // Verify API_URL is available
+            if (typeof API_URL !== 'undefined') {
+                console.log('✅ API_URL loaded from api.js:', API_URL);
+            } else {
+                console.error('❌ API_URL not found! Make sure api.js is loaded properly.');
+            }
+            
             // Initialize layout
             initLayout();
             updatePageTitle('Siswa');
@@ -307,10 +330,17 @@
             document.getElementById('cancel-btn').addEventListener('click', hideModal);
             document.getElementById('student-form').addEventListener('submit', handleSubmit);
             
-            // Delete modal event listeners
-            document.getElementById('close-delete-modal-btn').addEventListener('click', hideDeleteModal);
-            document.getElementById('cancel-delete-btn').addEventListener('click', hideDeleteModal);
-            document.getElementById('confirm-delete-btn').addEventListener('click', deleteStudent);
+            // Refresh data button
+            document.getElementById('refresh-data-btn').addEventListener('click', refreshData);
+            
+            // Debug connection button
+            document.getElementById('debug-connection-btn').addEventListener('click', debugSpreadsheetConnection);
+            
+            // Basic API test button (fallback if debug action doesn't exist)
+            document.getElementById('refresh-data-btn').addEventListener('click', function() {
+                // Test basic API before refresh
+                testBasicAPIConnection().then(refreshData);
+            });
             
             // Search and filter functionality
             const searchInput = document.getElementById('search-input');
@@ -326,6 +356,11 @@
             if (classFilter) {
                 classFilter.addEventListener('change', filterChanged);
             }
+            
+            // Delete modal event listeners
+            document.getElementById('close-delete-modal-btn').addEventListener('click', hideDeleteModal);
+            document.getElementById('cancel-delete-btn').addEventListener('click', hideDeleteModal);
+            document.getElementById('confirm-delete-btn').addEventListener('click', deleteStudent);
             
             // Setup Filter Options
             fetchClassOptions()
@@ -373,6 +408,90 @@
             // Load initial data
             loadStudents();
             
+            // Show debug info for data sync troubleshooting
+            setTimeout(() => {
+                console.log('=== DATA SYNC TROUBLESHOOTING ===');
+                console.log('📋 Jika nama siswa tidak sesuai dengan spreadsheet:');
+                console.log('1. Klik tombol "Refresh Data" untuk memuat ulang dari spreadsheet');
+                console.log('2. Periksa Console Log untuk debug info data yang dimuat');
+                console.log('3. Pastikan backend GAS sudah terhubung dengan spreadsheet yang benar');
+                console.log('4. ID Spreadsheet yang digunakan: 1Gedn6C21H0T9D9SznpwKPex42GhDqksNOuGthxF6Tuo');
+                console.log('=====================================');
+            }, 2000);
+            
+            // Test basic API connection (using existing getSiswa action)
+            async function testBasicAPIConnection() {
+                console.log('🔍 Testing basic API connection...');
+                
+                try {
+                    // Try to get siswa data (this action should always exist)
+                    const response = await callApi('getSiswa', { paginated: 'true', page: 1, pageSize: 1 });
+                    
+                    if (response.success) {
+                        console.log('✅ Basic API connection working');
+                        console.log('📋 API Response:', response);
+                        
+                        // Check if we can see the backend data
+                        if (response.data && response.data.length > 0) {
+                            console.log('📋 First student from backend:', response.data[0]);
+                            console.log(`🎯 Backend shows student: "${response.data[0].nama}"`);
+                            
+                            // Check if it matches spreadsheet
+                            const directSpreadsheetUrl = `https://docs.google.com/spreadsheets/d/1Gedn6C21H0T9D9SznpwKPex42GhDqksNOuGthxF6Tuo/edit#gid=0`;
+                            console.log(`🔗 Check spreadsheet directly: ${directSpreadsheetUrl}`);
+                        }
+                        
+                        return true;
+                    } else {
+                        console.error('❌ API call failed:', response.error);
+                        showToast('error', 'API connection failed: ' + response.error);
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('❌ API connection error:', error);
+                    showToast('error', 'Cannot connect to backend: ' + error.message);
+                    return false;
+                }
+            }
+            
+            // Force refresh data from spreadsheet
+            async function refreshData() {
+                console.log('🔄 Refreshing data from spreadsheet...');
+                
+                const refreshBtn = document.getElementById('refresh-data-btn');
+                const originalText = refreshBtn.innerHTML;
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⭮</span> Refreshing...';
+                
+                try {
+                    // Clear local data
+                    students = [];
+                    classes = [];
+                    
+                    // Reset infinite scroll
+                    infiniteScroll.reset();
+                    
+                    // Clear filters to get fresh data
+                    document.getElementById('search-input').value = '';
+                    document.getElementById('filter-class').value = '';
+                    currentFilters = { search: '', classId: '' };
+                    
+                    // Force reload classes and students
+                    await Promise.all([
+                        fetchClassOptions().then(setupClassFilter),
+                        loadStudents()
+                    ]);
+                    
+                    showToast('success', 'Data berhasil di-refresh dari spreadsheet');
+                } catch (error) {
+                    console.error('Error refreshing data:', error);
+                    showToast('error', 'Gagal refresh data: ' + error.message);
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = originalText;
+                }
+            }
+            
             // Function to handle filter changes
             function filterChanged() {
                 // Reset students array and infinite scroll
@@ -416,6 +535,14 @@
                     // Get first page of students
                     const response = await getPaginatedSiswa(1, 20, filters);
                     
+                    // Debug: Log the actual response to see what data we're getting
+                    console.log('🔍 DEBUG: API Response for students:', response);
+                    console.log('🔍 DEBUG: Response data:', response.data);
+                    if (response.data && response.data.length > 0) {
+                        console.log('🔍 DEBUG: First student data:', response.data[0]);
+                        console.log('🔍 DEBUG: All student names:', response.data.map(s => s.nama));
+                    }
+                    
                     if (response.success) {
                         students = response.data;
                         
@@ -424,7 +551,7 @@
                         
                         // Render students
                         renderStudentsTable();
-                } else {
+                    } else {
                         showToast('error', 'Gagal memuat data: ' + response.error);
                         studentsTableBody.innerHTML = `
                             <tr>
@@ -433,8 +560,8 @@
                                 </td>
                             </tr>
                         `;
-                }
-            } catch (error) {
+                    }
+                } catch (error) {
                     console.error('Error loading students:', error);
                     showToast('error', 'Gagal memuat data: ' + error.message);
                     studentsTableBody.innerHTML = `
@@ -842,8 +969,8 @@
             try {
                 let response;
                 try {
-                    // Try using the API functions from student-api.js
-                    console.log('Using API functions from student-api.js');
+                    // Try using the API functions from api.js
+                    console.log('Using API functions from api.js');
                     if (isEdit) {
                         response = await updateSiswa(id, siswaData);
                     } else {
@@ -985,8 +1112,8 @@
             try {
                 let response;
                 try {
-                    // Try using the API function from student-api.js
-                    console.log('Using deleteSiswa function from student-api.js');
+                    // Try using the API function from api.js
+                    console.log('Using deleteSiswa function from api.js');
                     response = await deleteSiswa(studentIdToDelete);
                     console.log('deleteSiswa API response:', response);
                 } catch (functionError) {
@@ -1094,6 +1221,84 @@
                 } catch (error) {
                     console.error('Error formatting date:', error);
                     return dateString;
+                }
+            }
+            
+            // Debug spreadsheet connection
+            async function debugSpreadsheetConnection() {
+                console.log('🔍 Testing spreadsheet connection...');
+                
+                const debugBtn = document.getElementById('debug-connection-btn');
+                const originalText = debugBtn.innerHTML;
+                debugBtn.disabled = true;
+                debugBtn.innerHTML = '<span class="inline-block animate-spin mr-2">⭮</span> Testing...';
+                
+                try {
+                    // First, test if the new debug action exists
+                    console.log('🔍 Step 1: Testing if backend has latest deployment...');
+                    
+                    // Call debug endpoint
+                    const response = await callApi('debugSpreadsheetConnection');
+                    
+                    console.log('🔍 DEBUG CONNECTION RESPONSE:', response);
+                    
+                    if (response.success) {
+                        console.log('✅ Spreadsheet connection successful!');
+                        console.log('📋 Spreadsheet ID:', response.spreadsheetId);
+                        console.log('📋 Spreadsheet Name:', response.spreadsheetName);
+                        console.log('📋 Spreadsheet URL:', response.spreadsheetUrl);
+                        console.log('📋 Row Count:', response.rowCount);
+                        console.log('📋 Headers:', response.headers);
+                        console.log('📋 First Student:', response.firstStudent);
+                        console.log('📋 Raw First Row:', response.rawFirstRow);
+                        
+                        showToast('success', `Connected to spreadsheet: ${response.spreadsheetName} (${response.rowCount} students)`);
+                        
+                        // If first student name doesn't match what's shown, highlight the issue
+                        if (response.firstStudent && response.firstStudent.nama) {
+                            console.log(`🎯 First student in spreadsheet: "${response.firstStudent.nama}"`);
+                            
+                            // Compare with what's currently displayed
+                            const currentDisplayedName = students.length > 0 ? students[0].nama : 'No data loaded';
+                            console.log(`🎯 Currently displayed first student: "${currentDisplayedName}"`);
+                            
+                            if (response.firstStudent.nama !== currentDisplayedName) {
+                                console.log('❌ DATA MISMATCH DETECTED!');
+                                console.log('Backend is reading different data than what frontend displays');
+                                showToast('warning', `Data mismatch detected! Spreadsheet shows "${response.firstStudent.nama}" but frontend shows "${currentDisplayedName}"`);
+                            } else {
+                                console.log('✅ Data matches between backend and frontend');
+                            }
+                        }
+                    } else if (response.error && response.error.includes('Invalid action')) {
+                        console.log('❌ Backend deployment is outdated!');
+                        showToast('error', '🚨 Backend belum terupdate! Silakan redeploy Google Apps Script dengan kode terbaru.');
+                        
+                        // Show deployment instructions
+                        console.log('=== CARA REDEPLOY BACKEND ===');
+                        console.log('1. Buka Google Apps Script: https://script.google.com');
+                        console.log('2. Buka project yang sudah ada');
+                        console.log('3. Paste ulang semua kode dari file code.gs');
+                        console.log('4. Klik "Deploy" > "Manage deployments"');
+                        console.log('5. Klik icon gear ⚙️ di deployment yang ada');
+                        console.log('6. Ubah "Version" ke "New version"');
+                        console.log('7. Klik "Deploy"');
+                        console.log('8. Test lagi dengan klik "Debug Connection"');
+                    } else {
+                        console.error('❌ Spreadsheet connection failed:', response.error);
+                        showToast('error', 'Connection failed: ' + response.error);
+                    }
+                } catch (error) {
+                    console.error('❌ Debug connection error:', error);
+                    
+                    if (error.message && error.message.includes('Invalid action')) {
+                        showToast('error', '🚨 Backend belum terupdate! Silakan redeploy Google Apps Script.');
+                    } else {
+                        showToast('error', 'Debug failed: ' + error.message);
+                    }
+                } finally {
+                    debugBtn.disabled = false;
+                    debugBtn.innerHTML = originalText;
                 }
             }
         });
